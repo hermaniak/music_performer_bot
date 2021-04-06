@@ -29,7 +29,7 @@ def split_audio(filename, out_dir, bars, **kwargs):
     out = Path(out_dir) / filename.name 
     split_duration = 4 * 60 * int(bars) /  bpm
     command=f'sox {filename} -r 22050 -b 16 {out} trim 0 {split_duration} : newfile : restart'
-    result = sp.run(command.split(),  capture_output=True)
+    result = sp.run(command.split())
 
 
 def split_audios(indir, out_dir, bars, **kwargs):

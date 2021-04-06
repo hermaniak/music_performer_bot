@@ -15,24 +15,6 @@ PIANO_RANGE = (21, 108)
 VALTSEP = -1 # separator value for numpy encoding
 VALTCONT = -2 # numpy value for TCONT - needed for compressing chord array
 
-
-def text_to_tacotronseq_deq(text):
-    if not text.startswith('['):
-        logger.warning(f'no pitch-array in {text}')
-        return None
-    pitch = list(map(int, [i.strip() for i in text.replace('"','').replace('[','').replace(']','').split(',')]))
-    pitch = np.clip([(i - 36) for i in pitch if i > 37 and i < 95 ], 1, 1000)
-    return pitch
-
-def text_to_tacotronseq(text):
-    if not text.startswith('['):
-        logger.warning(f'no pitch-array in {text}')
-        return None
-    pitch = list(map(int, [i.strip() for i in text.replace('"','').replace('[','').replace(']','').split(',')]))
-    pitch = np.clip([(i - 36) for i in pitch if i > 37 and i < 95 ], 1, 1000)
-    return pitch
-
- 
 def encode_melody_from_audio(wav_file):
     samplerate = 22050
     win_s = 256  # fft size
