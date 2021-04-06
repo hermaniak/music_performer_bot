@@ -35,13 +35,16 @@ from scipy.io.wavfile import write
 import matplotlib
 import matplotlib.pyplot as plt
 
-import sys
-
 import time
 import dllogger as DLLogger
 from dllogger import StdOutBackend, JSONStreamBackend, Verbosity
 
 from waveglow.denoiser import Denoiser
+
+import sys
+sys.path.insert(0,'/mnt/shared_ad2_mt1/hbauerec/ttt/music_performer_bot')
+from performer_bot.utils.encode import text_to_tacotronseq
+
 
 def parse_args(parser):
     """
@@ -156,8 +159,7 @@ def prepare_input_sequence(texts, cpu_run=False):
 
     d = []
     for i,text in enumerate(texts):
-        d.append(torch.IntTensor(
-            text_to_sequence(text, ['english_cleaners'])[:]))
+        d.append(torch.IntTensor(text_to_tacotronseq(text)))
 
     text_padded, input_lengths = pad_sequences(d)
     if not cpu_run:
@@ -192,6 +194,10 @@ def main():
     Launches text to speech (inference).
     Inference is executed on a single GPU or CPU.
     """
+    
+    run_inference()
+
+def run_inference():
     parser = argparse.ArgumentParser(
         description='PyTorch Tacotron 2 Inference')
     parser = parse_args(parser)
@@ -213,22 +219,20 @@ def main():
         denoiser.cuda()
 
     jitted_tacotron2 = torch.jit.script(tacotron2)
-
     texts = []
     try:
         f = open(args.input, 'r')
         texts = f.readlines()
     except:
-        print("Could not read file")
-        sys.exit(1)
-
+        # take text as input
+        texts = [ args.input ] 
     if args.include_warmup:
         sequence = torch.randint(low=0, high=148, size=(1,50)).long()
         input_lengths = torch.IntTensor([sequence.size(1)]).long()
         if not args.cpu:
             sequence = sequence.cuda()
             input_lengths = input_lengths.cuda()
-        for i in range(3):
+        for i in range(2):
             with torch.no_grad():
                 mel, mel_lengths, _ = jitted_tacotron2(sequence, input_lengths)
                 _ = waveglow(mel)
@@ -236,7 +240,6 @@ def main():
     measurements = {}
 
     sequences_padded, input_lengths = prepare_input_sequence(texts, args.cpu)
-
     with torch.no_grad(), MeasureTime(measurements, "tacotron2_time", args.cpu):
         mel, mel_lengths, alignments = jitted_tacotron2(sequences_padded, input_lengths)
 
@@ -245,7 +248,6 @@ def main():
         audios = audios.float()
     with torch.no_grad(), MeasureTime(measurements, "denoiser_time", args.cpu):
         audios = denoiser(audios, strength=args.denoising_strength).squeeze(1)
-
     print("Stopping after",mel.size(2),"decoder steps")
     tacotron2_infer_perf = mel.size(0)*mel.size(2)/measurements['tacotron2_time']
     waveglow_infer_perf = audios.size(0)*audios.size(1)/measurements['waveglow_time']
@@ -259,9 +261,9 @@ def main():
 
     for i, audio in enumerate(audios):
 
-        plt.imshow(alignments[i].float().data.cpu().numpy().T, aspect="auto", origin="lower")
-        figure_path = os.path.join(args.output,"alignment_"+str(i)+args.suffix+".png")
-        plt.savefig(figure_path)
+        #plt.imshow(alignments[i].float().data.cpu().numpy().T, aspect="auto", origin="lower")
+        #figure_path = os.path.join(args.output,"alignment_"+str(i)+args.suffix+".png")
+        #plt.savefig(figure_path)
 
         audio = audio[:mel_lengths[i]*args.stft_hop_length]
         audio = audio/torch.max(torch.abs(audio))

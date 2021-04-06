@@ -32,7 +32,11 @@ import torch.utils.data
 
 import common.layers as layers
 from common.utils import load_wav_to_torch, load_filepaths_and_text, to_gpu
+import sys,os
+sys.path.insert(0,'/mnt/shared_ad2_mt1/hbauerec/ttt/music_performer_bot')
+from performer_bot.utils.encode import text_to_tacotronseq
 from tacotron2.text import text_to_sequence
+from performer_bot.musicautobot.music_transformer import MusicItem, MusicVocab
 
 class TextMelLoader(torch.utils.data.Dataset):
     """
@@ -58,7 +62,10 @@ class TextMelLoader(torch.utils.data.Dataset):
         audiopath, text = audiopath_and_text[0], audiopath_and_text[1]
         len_text = len(text)
         #text = self.get_text(text)
-        pitch = self.get_pitch(text)
+        #pitch = self.get_pitch(text)
+        #import pdb;pdb.set_trace()
+        vocab = MusicVocab.create()
+        pitch = torch.IntTensor(MusicItem.from_text(text, vocab)[0])
         mel = self.get_mel(audiopath)
         return (pitch, mel, len_text)
 
@@ -82,13 +89,17 @@ class TextMelLoader(torch.utils.data.Dataset):
         return melspec
 
     def get_text(self, text):
-        text_norm = torch.IntTensor(text_to_sequence(text, self.text_cleaners))
+        seq = pitch_to_sequence(text)
+        if not seq:
+            seq = text_to_sequence(text, self.text_cleaners)
+
+        text_norm = torch.IntTensor(seq)
         return text_norm
 
-    def get_pitch(self, text):
-        pitch = list(map(int, text.replace('[','').replace(']','').split(',')))
-        pitch = torch.IntTensor(np.clip([(i - 36) for i in pitch if i > 37 and i < 95 ], 1, 1000))
-        return pitch
+    #def get_pitch(self, text):
+    #    pitch = list(map(int, text.replace('[','').replace(']','').split(',')))
+    #    pitch = torch.IntTensor(np.clip([(i - 36) for i in pitch if i > 37 and i < 95 ], 1, 1000))
+    #    return pitch
 
     def __getitem__(self, index):
         return self.get_mel_text_pair(self.audiopaths_and_text[index])

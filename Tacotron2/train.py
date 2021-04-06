@@ -350,6 +350,9 @@ def main():
     parser = argparse.ArgumentParser(description='PyTorch Tacotron 2 Training')
     parser = parse_args(parser)
     args, _ = parser.parse_known_args()
+    #import pdb;pdb.set_trace()
+    if not os.path.exists(args.output):
+        os.makedirs(args.output, exist_ok = True)
 
     if 'LOCAL_RANK' in os.environ and 'WORLD_SIZE' in os.environ:
         local_rank = int(os.environ['LOCAL_RANK'])
