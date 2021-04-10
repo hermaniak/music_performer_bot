@@ -377,7 +377,6 @@ def main():
     model_name = args.model_name
     parser = models.model_parser(model_name, parser)
     args, _ = parser.parse_known_args()
-
     torch.backends.cudnn.enabled = args.cudnn_enabled
     torch.backends.cudnn.benchmark = args.cudnn_benchmark
 
@@ -391,7 +390,7 @@ def main():
     model = models.get_model(model_name, model_config,
                              cpu_run=False,
                              uniform_initialize_bn_weight=not args.disable_uniform_initialize_bn_weight)
-
+    #import pdb;pdb.set_trace()
     if not args.amp and distributed_run:
         model = DDP(model)
 

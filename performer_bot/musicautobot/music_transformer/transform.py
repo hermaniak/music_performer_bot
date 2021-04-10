@@ -53,7 +53,7 @@ class MusicItem():
     
     @classmethod
     def from_text(cls, text, vocab):
-        return vocab.numericalize(text.split()), vocab
+        return MusicItem(np.array(vocab.numericalize(text.split())), vocab)
 
     @classmethod
     def empty(cls, vocab, seq_type=SEQType.Sentence):
@@ -69,6 +69,16 @@ class MusicItem():
             return []
         return npenc2pitch_arr(idxenc2npenc(self.data, self.vocab))
  
+    def to_tacotron_pitch_seq(self):
+        if self.data is None:
+            return []
+        seq = npenc2pitch_arr(idxenc2npenc(self.data, self.vocab))
+        # copress dim a little, we don't need the full piano range
+        return  np.clip([(i - 36) for i in seq if i > 37 and i < 95 ], 1, 1000)
+
+    def to_tacotron_note_seq(self):
+        return self.data
+        
     def to_stream(self, bpm=120):
         return idxenc2stream(self.data, self.vocab, bpm=bpm)
 

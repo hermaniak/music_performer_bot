@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 #sys.path.insert(0, Path(__file__).parent.parent.parent.absolute() )
 
-from utils.audio import audio2pitch_seq
+from performer_bot.utils.audio import audio2pitch_seq
 import music21
 import numpy as np
 from music21 import *

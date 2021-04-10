@@ -33,6 +33,7 @@ import os
 import numpy as np
 from scipy.io.wavfile import write
 import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 import time
@@ -42,8 +43,9 @@ from dllogger import StdOutBackend, JSONStreamBackend, Verbosity
 from waveglow.denoiser import Denoiser
 
 import sys
+#from performer_bot.utils.encode import text_to_tacotronseq
 sys.path.insert(0,'/mnt/shared_ad2_mt1/hbauerec/ttt/music_performer_bot')
-from performer_bot.utils.encode import text_to_tacotronseq
+from performer_bot.musicautobot.music_transformer import MusicItem, MusicVocab
 
 
 def parse_args(parser):
@@ -76,7 +78,8 @@ def parse_args(parser):
                         help='Include warmup')
     parser.add_argument('--stft-hop-length', type=int, default=256,
                         help='STFT hop length for estimating audio length from mel size')
-
+    parser.add_argument('--seq-type', default='pitch',
+                        help='sequence type: [pitch|notes]\n  pitch: sequence of midi pitches\n  notes: sequence of notes (pitch+duration)')
     return parser
 
 
@@ -112,7 +115,6 @@ def unwrap_distributed(state_dict):
 def load_and_setup_model(model_name, parser, checkpoint, fp16_run, cpu_run, forward_is_infer=False):
     model_parser = models.model_parser(model_name, parser, add_help=False)
     model_args, _ = model_parser.parse_known_args()
-
     model_config = models.get_model_config(model_name, model_args)
     model = models.get_model(model_name, model_config, cpu_run=cpu_run,
                              forward_is_infer=forward_is_infer)
@@ -155,12 +157,17 @@ def pad_sequences(batch):
     return text_padded, input_lengths
 
 
-def prepare_input_sequence(texts, cpu_run=False):
+def prepare_input_sequence(texts, seq_type, cpu_run=False):
 
     d = []
     for i,text in enumerate(texts):
-        d.append(torch.IntTensor(text_to_tacotronseq(text)))
-
+        vocab = MusicVocab.create()
+        text=text.split('|')[1]
+        if seq_type == 'pitch':
+            seq = MusicItem.from_text(text, vocab).to_tacotron_pitch_seq()
+        else:
+            seq = MusicItem.from_text(text, vocab).to_tacotron_note_seq()
+        d.append(torch.IntTensor(seq))
     text_padded, input_lengths = pad_sequences(d)
     if not cpu_run:
         text_padded = text_padded.cuda().long()
@@ -239,7 +246,7 @@ def run_inference():
 
     measurements = {}
 
-    sequences_padded, input_lengths = prepare_input_sequence(texts, args.cpu)
+    sequences_padded, input_lengths = prepare_input_sequence(texts, args.seq_type, args.cpu)
     with torch.no_grad(), MeasureTime(measurements, "tacotron2_time", args.cpu):
         mel, mel_lengths, alignments = jitted_tacotron2(sequences_padded, input_lengths)
 
@@ -261,13 +268,15 @@ def run_inference():
 
     for i, audio in enumerate(audios):
 
-        #plt.imshow(alignments[i].float().data.cpu().numpy().T, aspect="auto", origin="lower")
-        #figure_path = os.path.join(args.output,"alignment_"+str(i)+args.suffix+".png")
-        #plt.savefig(figure_path)
+        plt.imshow(alignments[i].float().data.cpu().numpy().T, aspect="auto", origin="lower")
+        figure_path = os.path.join(args.output,"alignment_"+str(i)+args.suffix+".png")
+        plt.savefig(figure_path)
 
+        amplitude = np.iinfo(np.int16).max
         audio = audio[:mel_lengths[i]*args.stft_hop_length]
         audio = audio/torch.max(torch.abs(audio))
         audio_path = os.path.join(args.output,"audio_"+str(i)+args.suffix+".wav")
+        #write(audio_path, args.sampling_rate, audio.cpu().numpy().astype(np.int16))
         write(audio_path, args.sampling_rate, audio.cpu().numpy())
 
     DLLogger.flush()
