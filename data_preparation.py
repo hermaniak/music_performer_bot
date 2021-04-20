@@ -66,12 +66,14 @@ def prepare_bot_data(**kwargs):
         chords = encode_chords_from_txt_file(chord_file)
         bars = int(len(chords)/16)
         if not any(wav_dir.iterdir()) or not kwargs['lazy']:
-            split_audios(raw_data_dir, wav_dir, bars)
+            split_audios(raw_data_dir, wav_dir, bars, chord_file = chord_file)
         files = get_files(wav_dir,  extensions='.wav', recurse=True);
         path='' 
-        #import pdb;pdb.set_trace()
-        s2s_data = MusicDataBunch.from_files((files, chord_file), path, processors=[S2SAudioChordProcessor()], 
-                                          preloader_cls=S2SPreloader, list_cls=S2SItemList, dl_tfms=melody_chord_tfm)
+         
+        #s2s_data = MusicDataBunch.from_files((files, chord_file), path, processors=[S2SAudioChordProcessor()], 
+        s2s_data = MusicDataBunch.from_files(files, path, processors=[S2SAudioChordProcessor()], 
+                                          preloader_cls=S2SPreloader, list_cls=S2SItemList, dl_tfms=melody_chord_tfm,bptt=5, bs=2)
+        import pdb;pdb.set_trace()
         data = MusicDataBunch.from_files(files, path, processors=[AudioItemProcessor()])
         print("=== MUSIC DATA ===")
         print(data)
@@ -79,8 +81,8 @@ def prepare_bot_data(**kwargs):
         print(s2s_data)
         bot_data_dir = Path('data/bot_data')
         Path(bot_data_dir).mkdir(parents=True, exist_ok=True)  
-        data.save(bot_data_dir/'music_data_bunch.pk')
-        s2s_data.save(bot_data_dir/'s2s_data_bunch.pk')
+        data.save(bot_data_dir/'music_data_bunch.pkl')
+        s2s_data.save(bot_data_dir/'s2s_data_bunch.pkl')
 
 if __name__ == "__main__":
     parser = ArgumentParser(description='audio utils, split audios', formatter_class=RawTextHelpFormatter)

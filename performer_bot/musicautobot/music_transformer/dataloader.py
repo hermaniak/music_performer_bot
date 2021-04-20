@@ -22,6 +22,7 @@ class MusicDataBunch(DataBunch):
         val_bs = bs
         dl_tfms = [partially_apply_vocab(tfm, train_ds.vocab) for tfm in listify(dl_tfms)]
         dls = [DataLoader(d, b, shuffle=shuffle_dl) for d,b in zip(datasets, (bs,val_bs,val_bs,val_bs)) if d is not None]
+        #import pdb;pdb.set_trace()
         return cls(*dls, path=path, device=device, dl_tfms=dl_tfms, collate_fn=collate_fn, no_check=no_check)
     
     @classmethod    
@@ -92,8 +93,9 @@ class AudioItemProcessor(PreProcessor):
         #import pdb;pdb.set_trace()
         self.vocab = ds.vocab
         audio_files = ds.items
-        ds.items = [self.process_one(item) for item in audio_files]
-
+        #ds.items = [self.process_one(item) for item in audio_files]
+        super().process(ds)
+    
 
   
 class OpenNPFileProcessor(PreProcessor):

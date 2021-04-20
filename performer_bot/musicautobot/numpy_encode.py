@@ -3,12 +3,12 @@
 # import re
 import sys
 from pathlib import Path
-#sys.path.insert(0, Path(__file__).parent.parent.parent.absolute() )
+sys.path.insert(0,  '/mnt/shared_ad2_mt1/hbauerec/ttt/music_performer_bot/')
 
 from performer_bot.utils.audio import audio2pitch_seq
 import music21
 import numpy as np
-from music21 import *
+#from music21 import *
 import os
 # from pathlib import Path
 
@@ -159,7 +159,7 @@ def npenc2pitch_arr(npenc):
             d -= 1
             n = 0
 
-        for i in range(d):
+        for i in range(d*4):
             pitch_arr.append(n)
 
     return pitch_arr
@@ -368,11 +368,11 @@ def encode_chords_from_txt(chords_txt):
     for chord in (chords_txt).split('|'):
         ch_arr = (chord).split()
         for ch in ch_arr:
-            try:
-                harm = harmony.ChordSymbol(ch.strip())
-            except:
-                print(f'chord {ch} not valid')
-                continue
+            #try:
+            harm = music21.harmony.ChordSymbol(ch.strip())
+            #except:
+            #    print(f'chord {ch} not valid')
+            #    continue
             for i in range(int(4 / len(ch_arr))):
                 chords.append(harm)
                 for pitch in harm.pitches:

@@ -87,8 +87,6 @@ class MusicItem():
     
     def to_text(self, sep=' '): return self.vocab.textify(self.data, sep)
      
-    def to_idx(self): return self.data
- 
     @property
     def position(self): 
         self._position = position_enc(self.data, self.vocab) if self._position is None else self._position

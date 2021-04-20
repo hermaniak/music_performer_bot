@@ -43,7 +43,9 @@ class MultitrackItem():
     def from_idx(cls, item, vocab):
         m, c = item
         return MultitrackItem(MusicItem.from_idx(m, vocab), MusicItem.from_idx(c, vocab))
-    def to_idx(self): return np.array((self.melody.to_idx(), self.chords.to_idx()))
+
+    def to_idx(self): 
+        return np.array((self.melody.to_idx(), self.chords.to_idx()))
     
     @property
     def stream(self):

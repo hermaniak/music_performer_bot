@@ -8,7 +8,8 @@ from numpy import array, ma
 import aubio
 import numpy as np
 from scipy import stats
-
+from glob import glob
+import shutil
 
 import logging
 logger=logging.getLogger('__name__')
@@ -30,6 +31,9 @@ def split_audio(filename, out_dir, bars, **kwargs):
     split_duration = 4 * 60 * int(bars) /  bpm
     command=f'sox {filename} -r 22050 -b 16 {out} trim 0 {split_duration} : newfile : restart'
     result = sp.run(command.split())
+    if kwargs['chord_file']:
+        for g in glob(str(out_dir/'*.wav')):
+            shutil.copy(kwargs['chord_file'], g.replace('.wav','.txt'))
 
 
 def split_audios(indir, out_dir, bars, **kwargs):

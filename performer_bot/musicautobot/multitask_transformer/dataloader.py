@@ -31,19 +31,22 @@ class S2SPartsProcessor(PreProcessor):
 class S2SAudioChordProcessor(PreProcessor):
     "Encodes audio files plus chord text file into MultiTrackItem"
 
-    def process_one(self, c, melody_file):
+    def process_one(self, melody_file):
+        chord_file = str(melody_file).replace('.wav', '.txt')
         m = MusicItem.from_audio(melody_file, self.vocab)
+        c = MusicItem.from_chordfile(chord_file, self.vocab)
         mtrack = MultitrackItem(m, c, None)
         return mtrack.to_idx()
 
     def process(self, ds):
-        #import pdb;pdb.set_trace()
         self.vocab = ds.vocab
-        if len(ds.items) == 2:
-            chord_file = ds.items[1]
-            mel_files = ds.items[0]
-            c = MusicItem.from_chordfile(chord_file, self.vocab)
-            ds.items = [self.process_one(c, item) for item in mel_files]
+        #if len(ds.items) == 2:
+        if 2 == 2:
+            #chord_file = ds.items[1]
+            chord_file = '/mnt/shared_ad2_mt1//hbauerec/data/de/raw/bh/bh.txt' 
+            #mel_files = ds.items[0]
+            mel_files = ds.items
+            ds.items = [self.process_one(item) for item in mel_files]
 
 
 class Midi2MultitrackProcessor(PreProcessor):
@@ -77,7 +80,6 @@ class S2SPreloader(Callback):
             item = item.transpose(val)
         item = item.pad_to(self.bptt+1)
         ((m_x, m_pos), (c_x, c_pos)) = item.to_idx()
-        import pdb;pdb.set_trace()
         return m_x, m_pos, c_x, c_pos
     
     def __len__(self):
@@ -90,8 +92,10 @@ def rand_transpose_value(rand_range=(0,24), p=0.5):
 class S2SItemList(MusicItemList):
     _bunch = MusicDataBunch
     def get(self, i):
-        return MultitrackItem.from_idx(self.items[i], self.vocab)
-
+        #try:
+            return MultitrackItem.from_idx(self.items[i], self.vocab)
+        #except:
+        #    import pdb;pdb.set_trace()
 # DATALOADING AND TRANSFORMATIONS
 # These transforms happen on batch
 

@@ -262,6 +262,17 @@ def s2s_predict_from_midi(learn, midi=None, n_words=200,
     part_order = (pred, inp) if pred_melody else (inp, pred)
     return MultitrackItem(*part_order)
 
+def s2s_predict_from_chord_files(learn, chord_file, n_words=200,
+                      temperatures=(1.0,1.0), top_k=24, top_p=0.7, seed_len=None, pred_melody=True, **kwargs):
+
+    chords = MusicItem.from_chordfile(chord_file,learn.data.vocab)
+    empty_melody = MusicItem.empty(learn.data.vocab, seq_type=SEQType.Melody)
+    
+    pred = learn.predict_s2s(chords, empty_melody, n_words=n_words, temperatures=temperatures, top_k=top_k, top_p=top_p, **kwargs)    
+
+    return MultitrackItem(chords, pred)
+
+
 def mask_predict_from_midi(learn, midi=None, predict_notes=True,
                            temperatures=(1.0,1.0), top_k=30, top_p=0.7, section=None, **kwargs):
     item = MusicItem.from_file(midi, learn.data.vocab)
