@@ -184,7 +184,6 @@ class MultitaskLearner(Learner):
 
         max_pos = input_item.position[-1] + SAMPLE_FREQ * 4 # Only predict until both tracks/parts have the same length
         x, pos = inp.new_tensor(targ), inp_pos.new_tensor(targ_pos)
-        
         for i in progress_bar(range(n_words), leave=True):
             # Predict
             with torch.no_grad():
@@ -266,11 +265,24 @@ def s2s_predict_from_chord_files(learn, chord_file, n_words=200,
                       temperatures=(1.0,1.0), top_k=24, top_p=0.7, seed_len=None, pred_melody=True, **kwargs):
 
     chords = MusicItem.from_chordfile(chord_file,learn.data.vocab)
+    
     empty_melody = MusicItem.empty(learn.data.vocab, seq_type=SEQType.Melody)
     
     pred = learn.predict_s2s(chords, empty_melody, n_words=n_words, temperatures=temperatures, top_k=top_k, top_p=top_p, **kwargs)    
 
     return MultitrackItem(chords, pred)
+
+def s2s_predict_from_chords(learn, chords, n_words=200,
+                      temperatures=(1.0,1.0), top_k=24, top_p=0.7, seed_len=None, pred_melody=True, **kwargs):
+
+    chords = MusicItem.from_chords(chords,learn.data.vocab)
+    print(f'chords: {chords}')
+    empty_melody = MusicItem.empty(learn.data.vocab, seq_type=SEQType.Melody)
+
+    pred = learn.predict_s2s(chords, empty_melody, n_words=n_words, temperatures=temperatures, top_k=top_k, top_p=top_p, **kwargs)
+
+    return MultitrackItem(pred, chords)
+
 
 
 def mask_predict_from_midi(learn, midi=None, predict_notes=True,

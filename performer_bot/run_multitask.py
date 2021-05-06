@@ -71,7 +71,6 @@ data = load_data(args.path, args.data_file,
                  dl_tfms=mlm_tfm, num_workers=args.num_workers)
 
 datasets.append(data)
-import pdb;pdb.set_trace()
 s2s_data = load_data(args.path, args.s2s_data_file, 
                     bs=args.batch_size//4, bptt=args.bptt, transpose_range=transpose_range,
                      preloader_cls=S2SPreloader, dl_tfms=melody_chord_tfm, num_workers=args.num_workers)
@@ -89,7 +88,6 @@ if args.lamb:
     
 # Load Learner
 load_path = path/args.load if args.load else None
-import pdb;pdb.set_trace()
 learn = multitask_model_learner(combined_data, config.copy(), opt_func=opt_func, pretrained_path=load_path)
 
 if not args.half: learn.clip_grad(1.0)

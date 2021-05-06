@@ -122,16 +122,19 @@ def timestep2npenc(timestep, note_range=PIANO_RANGE, enc_type=None):
         # note_class, duration, octave, instrument
         return [[n%12, d, n//12, i] for n,d,i in notes] 
 
-def chord2npenc(chord_file):
+def chordfile2npenc(chord_file):
     return encode_chords_from_txt_file(chord_file)
 
+def chords2npenc(chords):
+    return encode_chords_from_txt(chords)    
+
 def audio2npenc(audio_file):
-    seq = audio2pitch_seq(audio_file)
+    seq, bpm = audio2pitch_seq(audio_file)
   
     notes_np = []
     note={'pitch': 0, 'tick': 0} 
     if len(seq) == 0:
-        return np.array([])
+        return (np.array([]), bpm)
     for n, s in enumerate(seq):
         tick_quantized = int(n / 2)
         if s != note['pitch'] and note['tick'] != tick_quantized:
@@ -144,14 +147,22 @@ def audio2npenc(audio_file):
             notes_np.append([note['pitch'], dur])
             note={'pitch': s, 'tick': tick_quantized}
     #import pdb;pdb.set_trace()
-    return np.array(notes_np, dtype=int).reshape(-1,2)
+    return (np.array(notes_np, dtype=int).reshape(-1,2), bpm)
  
  
 
 ##### DECODING #####
 
 # 1.
-def npenc2pitch_arr(npenc):
+def npenc2pitch_arr(npenc, bpm):
+
+    # bpm steps for quantisation
+    bpm_quant = 26.66666   # equals step size 68.1818 ms
+    seq_step_size_float = float(bpm) / bpm_quant
+    seq_step_size = int(round(seq_step_size_float, 0))
+    if (seq_step_size_float - seq_step_size) > 0.2:
+        logger.warning(f'high quanitisation error for {bpm} bpm, try getting closer to bpm step size {bpm_quant}')
+
     pitch_arr = []
     for step in npenc:
         n,d,i = (step.tolist()+[0])[:3] # or n,d,i
@@ -159,7 +170,7 @@ def npenc2pitch_arr(npenc):
             d -= 1
             n = 0
 
-        for i in range(d*4):
+        for i in range(d*seq_step_size):
             pitch_arr.append(n)
 
     return pitch_arr

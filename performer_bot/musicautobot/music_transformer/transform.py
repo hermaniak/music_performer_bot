@@ -8,11 +8,13 @@ from functools import partial
 SEQType = Enum('SEQType', 'Mask, Sentence, Melody, Chords, Empty')
 
 class MusicItem():
-    def __init__(self, data, vocab, stream=None, position=None):
+    def __init__(self, data, vocab, stream=None, position=None, **kwargs):
         self.data = data
         self.vocab = vocab
         self._stream = stream
         self._position = position
+        self.bpm = kwargs['bpm'] if 'bpm' in kwargs else 110
+
     def __repr__(self): return '\n'.join([
         f'\n{self.__class__.__name__} - {self.data.shape}',
         f'{self.vocab.textify(self.data[:10])}...'])
@@ -30,20 +32,25 @@ class MusicItem():
 
     @classmethod
     def from_audio(cls, audio_file, vocab):
-        npenc = audio2npenc(audio_file)      
-        return cls.from_npenc(npenc, vocab, stream=None)
+        npenc, bpm = audio2npenc(audio_file)      
+        return cls.from_npenc(npenc, vocab, stream=None, bpm=bpm)
 
     @classmethod
     def from_chordfile(cls, chord_file, vocab):
-        npenc = chord2npenc(chord_file)
+        npenc = chordfile2npenc(chord_file)
         return cls.from_npenc(npenc, vocab, stream=None)
 
+    @classmethod
+    def from_chords(cls, chords, vocab):
+        npenc = chords2npenc(chords)
+        return cls.from_npenc(npenc, vocab, stream=None)
+    
 
     @classmethod
-    def from_npenc(cls, npenc, vocab, stream=None): 
+    def from_npenc(cls, npenc, vocab, stream=None, bpm=None): 
         if len(npenc) == 0:
             return MusicItem.empty(vocab)
-        return MusicItem(npenc2idxenc(npenc, vocab), vocab, stream)
+        return MusicItem(npenc2idxenc(npenc, vocab), vocab, stream, pos=None, bpm=bpm)
     
     @classmethod
     def from_idx(cls, item, vocab):
@@ -67,12 +74,13 @@ class MusicItem():
     def to_pitch_arr(self):
         if self.data is None:
             return []
-        return npenc2pitch_arr(idxenc2npenc(self.data, self.vocab))
+        return npenc2pitch_arr(idxenc2npenc(self.data, self.vocab), self.bpm)
  
     def to_tacotron_pitch_seq(self):
         if self.data is None:
             return []
-        seq = npenc2pitch_arr(idxenc2npenc(self.data, self.vocab))
+        #import pdb;pdb.set_trace()
+        seq = npenc2pitch_arr(idxenc2npenc(self.data, self.vocab, validate=False), self.bpm)
         # copress dim a little, we don't need the full piano range
         return  np.clip([(i - 36) for i in seq if i > 37 and i < 95 ], 1, 1000)
 
@@ -85,7 +93,7 @@ class MusicItem():
     def to_tensor(self, device=None):
         return to_tensor(self.data, device)
     
-    def to_text(self, sep=' '): return self.vocab.textify(self.data, sep)
+    def to_text(self, sep=' '): return (self.vocab.textify(self.data, sep), self.bpm)
      
     @property
     def position(self): 
@@ -204,7 +212,7 @@ def to_valid_npenc(t):
     is_note = (t[:, 0] < VALTSEP) | (t[:, 0] >= NOTE_SIZE)
     invalid_note_idx = is_note.argmax()
     invalid_dur_idx = (t[:, 1] < 0).argmax()
-
+    import pdb;pdb.set_trace()
     invalid_idx = max(invalid_dur_idx, invalid_note_idx)
     if invalid_idx > 0: 
         if invalid_note_idx > 0 and invalid_dur_idx > 0: invalid_idx = min(invalid_dur_idx, invalid_note_idx)

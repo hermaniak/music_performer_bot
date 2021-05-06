@@ -64,11 +64,11 @@ def load_filepaths_and_text(dataset_path, filename, split="|"):
     with open(filename, encoding='utf-8') as f:
         def split_line(root, line):
             parts = line.strip().split(split)
-            if len(parts) != 2:
+            if len(parts) != 3:
                 print(f'WARNING: invalid formatted line {line}')
                 return None
-            path = os.path.join(root, parts[0])
-            text = parts[1]
+            path = os.path.join(root, parts[1])
+            text = parts[2]
             return path,text
         filepaths_and_text=[]    
         for line in f:

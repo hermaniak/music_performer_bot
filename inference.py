@@ -42,18 +42,8 @@ from dllogger import StdOutBackend, JSONStreamBackend, Verbosity
 from Tacotron2.waveglow.denoiser import Denoiser
 from performer_bot import *
 
-chord_file='data/split_chorus/wav/sax_74bpm_dm-cm-bbm-004.txt'
-
-data  = MusicDataBunch.empty('bot_data')
-vocab = data.vocab
-
-pretrained_path='data/bot_data/models/first_run.pth'
-learn = multitask_model_learner(data, pretrained_path=pretrained_path)
-
-pred_melody = s2s_predict_from_chord_files(learn, chord_file, n_words=20, seed_len=4, pred_melody=True)
-
-print(pred_melody.melody)
-
+import logging
+logger = logging.getLogger(__name__) 
 import sys
 #from performer_bot.utils.encode import text_to_tacotronseq
 #sys.path.insert(0,'/mnt/shared_ad2_mt1/hbauerec/ttt/music_performer_bot')
@@ -65,7 +55,9 @@ def parse_args(parser):
     Parse commandline arguments.
     """
     parser.add_argument('-i', '--input', type=str,
-                        help='full path to the input text (phareses separated by new line)')
+                        help='path to inpute chord-file or chords-str')
+    parser.add_argument('-c', '--chords', help='path to inpute chord-file or chords-str')
+    parser.add_argument('-m', '--melody', help='path to inpute melody-file or melody-str')
     parser.add_argument('-o', '--output', required=True,
                         help='output folder to save audio (file per phrase)')
     parser.add_argument('--suffix', type=str, default="", help="output filename suffix")
@@ -73,6 +65,7 @@ def parse_args(parser):
                         help='full path to the Tacotron2 model checkpoint file')
     parser.add_argument('--waveglow', type=str,
                         help='full path to the WaveGlow model checkpoint file')
+    parser.add_argument('--bpm', default=110, help='beats per minute')
     parser.add_argument('-s', '--sigma-infer', default=0.9, type=float)
     parser.add_argument('-d', '--denoising-strength', default=0.01, type=float)
     parser.add_argument('-sr', '--sampling-rate', default=22050, type=int,
@@ -83,7 +76,7 @@ def parse_args(parser):
                         help='Run inference with mixed precision')
     run_mode.add_argument('--cpu', action='store_true',
                         help='Run inference on CPU')
-
+    
     parser.add_argument('--log-file', type=str, default='nvlog.json',
                         help='Filename for logging')
     parser.add_argument('--include-warmup', action='store_true',
@@ -208,6 +201,7 @@ def main():
     run_inference()
 
 def run_inference():
+    logging.basicConfig(filename='inference.log', filemode='w', level=logging.DEBUG)
     parser = argparse.ArgumentParser(
         description='PyTorch Tacotron 2 Inference')
     parser = parse_args(parser)
@@ -229,13 +223,37 @@ def run_inference():
         denoiser.cuda()
 
     jitted_tacotron2 = torch.jit.script(tacotron2)
-    texts = []
-    try:
-        f = open(args.input, 'r')
-        texts = f.readlines()
-    except:
-        # take text as input
-        texts = [ args.input ] 
+    melodies = []
+    data  = MusicDataBunch.empty('bot_data')
+    vocab = data.vocab
+ 
+    if args.melody:
+        if os.path.exists(args.melody):
+            logger.info(f'get melodies from {args.melody}')
+            f = open(args.melody, 'r')
+            for t in f.readlines():
+                bpm, fn, melody_text = t.split('|')
+                print(melody_text)
+                m = MusicItem.from_text(melody_text, vocab)
+                m.bpm = bpm
+                melodies.append(MusicItem.from_text(melody_text, vocab))
+                    
+        else:
+            # take text as input
+            melodies.append(MusicItem.from_text(args.melody, vocab))
+    if args.chords:
+        pretrained_path='data/bot_data/models/first_run.pth'
+        learn = multitask_model_learner(data, pretrained_path=pretrained_path)
+
+        if os.path.exists('args.chords'):
+            m = s2s_predict_from_chord_files(learn, chord_file, n_words=200, seed_len=4, pred_melody=True).melody
+            melodies.append(s2s_predict_from_chord_files(learn, chord_file, n_words=20, seed_len=4, pred_melody=True).melody)
+        else:
+            for i in range(3):
+                m = s2s_predict_from_chords(learn, args.chords, n_words=200, seed_len=4, pred_melody=True).melody
+                m.bpm = args.bpm
+                print(f'predicted melody {args.bpm}bpm: {m}')
+                melodies.append(m)
     if args.include_warmup:
         sequence = torch.randint(low=0, high=148, size=(1,50)).long()
         input_lengths = torch.IntTensor([sequence.size(1)]).long()
@@ -248,31 +266,16 @@ def run_inference():
                 _ = waveglow(mel)
 
     measurements = {}
-
+   
     d = []
-    chord_file='data/split_chorus/wav/sax_74bpm_dm-cm-bbm-004.txt'
-    if chord_file:
-        data  = MusicDataBunch.empty('bot_data')
-        vocab = data.vocab
-
-        pretrained_path='data/bot_data/models/first_run.pth'
-        learn = multitask_model_learner(data, pretrained_path=pretrained_path)
-
-    
-        pred_melody = s2s_predict_from_chord_files(learn, chord_file, n_words=20, seed_len=4, pred_melody=True)
-        melody = pred_melody.melody
-        print(pred_melody.melody)
-    else:
-        for i,text in enumerate(texts):
-            vocab = MusicVocab.create()
-            text=text.split('|')[1]
-            melody = MusicItem.from_text(text, vocab)
     seq_type = 'pitch' 
-    if seq_type == 'pitch':
-         seq = melody.to_tacotron_pitch_seq()
-    else:
-         seq = melody.to_tacotron_note_seq()
-    d.append(torch.IntTensor(seq))
+    for mel in melodies:
+        #import pdb;pdb.set_trace()
+        if seq_type == 'pitch':
+            seq = mel.to_tacotron_pitch_seq()
+        else:
+            seq = mel.to_tacotron_note_seq()
+        d.append(torch.IntTensor(seq))
 
     sequences_padded, input_lengths = prepare_input_sequence(d, args.seq_type, args.cpu)
     with torch.no_grad(), MeasureTime(measurements, "tacotron2_time", args.cpu):
@@ -293,7 +296,7 @@ def run_inference():
     DLLogger.log(step=0, data={"waveglow_latency": measurements['waveglow_time']})
     DLLogger.log(step=0, data={"denoiser_latency": measurements['denoiser_time']})
     DLLogger.log(step=0, data={"latency": (measurements['tacotron2_time']+measurements['waveglow_time']+measurements['denoiser_time'])})
-
+    #import pdb;pdb.set_trace()
     for i, audio in enumerate(audios):
 
         plt.imshow(alignments[i].float().data.cpu().numpy().T, aspect="auto", origin="lower")

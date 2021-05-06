@@ -65,7 +65,7 @@ class TextMelLoader(torch.utils.data.Dataset):
         #pitch = self.get_pitch(text)
         #import pdb;pdb.set_trace()
         vocab = MusicVocab.create()
-        pitch = torch.IntTensor(MusicItem.from_text(text, vocab).to_pitch_arr())
+        pitch = torch.IntTensor(MusicItem.from_text(text, vocab).to_tacotron_pitch_seq())
         mel = self.get_mel(audiopath)
         return (pitch, mel, len_text)
 
