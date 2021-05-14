@@ -61,10 +61,12 @@ def parse_args(parser):
     parser.add_argument('-o', '--output', required=True,
                         help='output folder to save audio (file per phrase)')
     parser.add_argument('--suffix', type=str, default="", help="output filename suffix")
-    parser.add_argument('--tacotron2', type=str,
+    parser.add_argument('--tacotron2', type=str, default="snapshots/tacotron/checkpoint_Tacotron2_last.pt",
                         help='full path to the Tacotron2 model checkpoint file')
-    parser.add_argument('--waveglow', type=str,
+    parser.add_argument('--waveglow', type=str, default="snapshots/waveglow/checkpoint_WaveGlow_last.pt",
                         help='full path to the WaveGlow model checkpoint file')
+    parser.add_argument('--bot', type=str, help='performer bot multitask model'
+                        , default = 'data/bot_data/models/first_run.pth')
     parser.add_argument('--bpm', default=110, help='beats per minute')
     parser.add_argument('-s', '--sigma-infer', default=0.9, type=float)
     parser.add_argument('-d', '--denoising-strength', default=0.01, type=float)
