@@ -27,17 +27,19 @@ def split_audio(filename, out_dir, bars, **kwargs):
         raise RuntimeError('please specify beats per minute (bpm)')
 
     out_dir.mkdir(parents=True, exist_ok=True) 
-    out = Path(out_dir) / filename.name 
+    out = f'{out_dir}/{filename.name}'.replace('.wav','_.wav' )
     split_duration = 4 * 60 * int(bars) /  bpm
     command=f'sox {filename} -r 22050 -b 16 {out} trim 0 {split_duration} : newfile : restart'
     result = sp.run(command.split())
-    if kwargs['chord_file']:
+    if 'chord_file' in kwargs and kwargs['chord_file']:
         for g in glob(str(out_dir/'*.wav')):
             shutil.copy(kwargs['chord_file'], g.replace('.wav','.txt'))
 
 
 def split_audios(indir, out_dir, bars, **kwargs):
     audios = get_files(indir, extensions='.wav', recurse=True);
+    if not audios:
+        logger.error(f'could not find any audio in {indir}')
     logger.info(f'found {len(audios)} audiofiles, split up in {bars} bar chunks')
     for a in audios:
         logger.debug(f'split audio {a}')
@@ -63,6 +65,9 @@ def audio2pitch_seq(audio_file, **kwargs):
     win_s = 1024
     tpb = 64
 
+    # bpm steps for quantisation
+    bpm_quant = 26.66666   # equals step size 68.1818 ms
+
     #import pdb;pdb.set_trace()
     
     bpm, bars = get_data_from_filename(audio_file)
@@ -74,6 +79,7 @@ def audio2pitch_seq(audio_file, **kwargs):
     if not bpm:
         logger.error(f'no bpm for file {audio_file}')
         return np.array([])
+
     hop_s = int(60 * samplerate / ( bpm * tpb ))
 
     s = aubio.source(str(audio_file), samplerate, hop_s)
@@ -112,16 +118,18 @@ def audio2pitch_seq(audio_file, **kwargs):
     seq = cleaned_pitches 
     if np.count_nonzero(seq==0) > (0.8 * seq.size):
         print('  found %s zeros in seq, discard' % np.count_nonzero(seq==0))
-        return np.array([])
+        return (np.array([]), bpm)
 
-    k_size = 4
     seq = seq.tolist()
     if len(seq) == 0:
-        return np.array([])
+        return (np.array([]), bpm)
     # split in 4-items and calc median 
     out_seq = stats.mode(np.reshape(np.pad(seq, (0, 4-(np.mod(len(seq),4))),mode='constant'), (-1, 4)),1)[0].squeeze()
-    
-    return out_seq
+   
+    # limit to midi range 
+    out_seq = np.clip(out_seq, 0, 108)
+
+    return (out_seq, bpm)
 
 
 

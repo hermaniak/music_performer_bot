@@ -73,12 +73,22 @@ class MusicItemProcessor(PreProcessor):
     "`PreProcessor` that transforms numpy files to indexes for training"
     def process_one(self,item):
         item = MusicItem.from_npenc(item, vocab=self.vocab)
+        import pdb;pdb.set_trace()
         return item.to_idx()
     
     def process(self, ds):
         self.vocab = ds.vocab
         super().process(ds)
       
+class MusicItemProcessor1(PreProcessor):
+    "`PreProcessor` that transforms numpy files to indexes for training"
+    def process_one(self,item):
+        item = MusicItem.from_npenc(item, vocab=self.vocab)
+        return item.to_idx()
+
+    def process(self, ds):
+        self.vocab = ds.vocab
+        super().process(ds)
 
 class AudioItemProcessor(PreProcessor):
     "Encodes audio files into MultiTrackItem"

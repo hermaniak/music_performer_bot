@@ -85,6 +85,7 @@ def parse_args(parser):
                         help='STFT hop length for estimating audio length from mel size')
     parser.add_argument('--seq-type', default='pitch',
                         help='sequence type: [pitch|notes]\n  pitch: sequence of midi pitches\n  notes: sequence of notes (pitch+duration)')
+    parser.add_argument("--repeat", type=int, default=5, help='create n samples of input')
     return parser
 
 
@@ -249,7 +250,7 @@ def run_inference():
             m = s2s_predict_from_chord_files(learn, chord_file, n_words=200, seed_len=4, pred_melody=True).melody
             melodies.append(s2s_predict_from_chord_files(learn, chord_file, n_words=20, seed_len=4, pred_melody=True).melody)
         else:
-            for i in range(3):
+            for i in range(args.repeat):
                 m = s2s_predict_from_chords(learn, args.chords, n_words=200, seed_len=4, pred_melody=True).melody
                 m.bpm = args.bpm
                 print(f'predicted melody {args.bpm}bpm: {m}')
@@ -272,45 +273,53 @@ def run_inference():
     for mel in melodies:
         #import pdb;pdb.set_trace()
         if seq_type == 'pitch':
-            seq = mel.to_tacotron_pitch_seq()
+            try:
+                seq = mel.to_tacotron_pitch_seq()
+            except: 
+                logger.error(f'could not convert melody {mel}')
+                continue
         else:
             seq = mel.to_tacotron_note_seq()
         d.append(torch.IntTensor(seq))
 
-    sequences_padded, input_lengths = prepare_input_sequence(d, args.seq_type, args.cpu)
-    with torch.no_grad(), MeasureTime(measurements, "tacotron2_time", args.cpu):
-        mel, mel_lengths, alignments = jitted_tacotron2(sequences_padded, input_lengths)
+    # split i 5 seq batches
+    allaudios=[]
+    for j, i in enumerate(range(0, len(d), 5)):
+        s = d[i:i + 5]
+     
+        sequences_padded, input_lengths = prepare_input_sequence(s, args.seq_type, args.cpu)
+        with torch.no_grad(), MeasureTime(measurements, "tacotron2_time", args.cpu):
+            mel, mel_lengths, alignments = jitted_tacotron2(sequences_padded, input_lengths)
 
-    with torch.no_grad(), MeasureTime(measurements, "waveglow_time", args.cpu):
-        audios = waveglow(mel, sigma=args.sigma_infer)
-        audios = audios.float()
-    with torch.no_grad(), MeasureTime(measurements, "denoiser_time", args.cpu):
-        audios = denoiser(audios, strength=args.denoising_strength).squeeze(1)
-    print("Stopping after",mel.size(2),"decoder steps")
-    tacotron2_infer_perf = mel.size(0)*mel.size(2)/measurements['tacotron2_time']
-    waveglow_infer_perf = audios.size(0)*audios.size(1)/measurements['waveglow_time']
+        with torch.no_grad(), MeasureTime(measurements, "waveglow_time", args.cpu):
+            audios = waveglow(mel, sigma=args.sigma_infer)
+            audios = audios.float()
+        with torch.no_grad(), MeasureTime(measurements, "denoiser_time", args.cpu):
+            audios = denoiser(audios, strength=args.denoising_strength).squeeze(1)
+        print("Stopping after",mel.size(2),"decoder steps")
+        tacotron2_infer_perf = mel.size(0)*mel.size(2)/measurements['tacotron2_time']
+        waveglow_infer_perf = audios.size(0)*audios.size(1)/measurements['waveglow_time']
 
-    DLLogger.log(step=0, data={"tacotron2_items_per_sec": tacotron2_infer_perf})
-    DLLogger.log(step=0, data={"tacotron2_latency": measurements['tacotron2_time']})
-    DLLogger.log(step=0, data={"waveglow_items_per_sec": waveglow_infer_perf})
-    DLLogger.log(step=0, data={"waveglow_latency": measurements['waveglow_time']})
-    DLLogger.log(step=0, data={"denoiser_latency": measurements['denoiser_time']})
-    DLLogger.log(step=0, data={"latency": (measurements['tacotron2_time']+measurements['waveglow_time']+measurements['denoiser_time'])})
-    #import pdb;pdb.set_trace()
-    for i, audio in enumerate(audios):
+        DLLogger.log(step=0, data={"tacotron2_items_per_sec": tacotron2_infer_perf})
+        DLLogger.log(step=0, data={"tacotron2_latency": measurements['tacotron2_time']})
+        DLLogger.log(step=0, data={"waveglow_items_per_sec": waveglow_infer_perf})
+        DLLogger.log(step=0, data={"waveglow_latency": measurements['waveglow_time']})
+        DLLogger.log(step=0, data={"denoiser_latency": measurements['denoiser_time']})
+        DLLogger.log(step=0, data={"latency": (measurements['tacotron2_time']+measurements['waveglow_time']+measurements['denoiser_time'])})
+        DLLogger.flush()
+        for i, audio in enumerate(audios):
 
-        plt.imshow(alignments[i].float().data.cpu().numpy().T, aspect="auto", origin="lower")
-        figure_path = os.path.join(args.output,"alignment_"+str(i)+args.suffix+".png")
-        plt.savefig(figure_path)
+            #plt.imshow(alignments[i].float().data.cpu().numpy().T, aspect="auto", origin="lower")
+            #figure_path = os.path.join(args.output,"alignment_"+str(i)+args.suffix+".png")
+            #plt.savefig(figure_path)
+            print(f'write audio_{str(i+(5*j))}.wav')
+            amplitude = np.iinfo(np.int16).max
+            audio = audio[:mel_lengths[i]*args.stft_hop_length]
+            audio = audio/torch.max(torch.abs(audio))
+            audio_path = os.path.join(args.output,"audio_"+str(i+(5*j))+args.suffix+".wav")
+            #write(audio_path, args.sampling_rate, audio.cpu().numpy().astype(np.int16))
+            write(audio_path, args.sampling_rate, audio.cpu().numpy())
 
-        amplitude = np.iinfo(np.int16).max
-        audio = audio[:mel_lengths[i]*args.stft_hop_length]
-        audio = audio/torch.max(torch.abs(audio))
-        audio_path = os.path.join(args.output,"audio_"+str(i)+args.suffix+".wav")
-        #write(audio_path, args.sampling_rate, audio.cpu().numpy().astype(np.int16))
-        write(audio_path, args.sampling_rate, audio.cpu().numpy())
-
-    DLLogger.flush()
 
 if __name__ == '__main__':
     main()

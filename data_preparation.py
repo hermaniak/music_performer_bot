@@ -12,7 +12,7 @@ import logging
 logger=logging.getLogger('__name__')
 import subprocess as sp
 
-data_filter=['bluebossa', 'bh', 'oleo']
+data_filter=['bluebossa', 'bh', 'oleo', 'caravan', 'funk']
 raw_data_dir=Path('/home/hbauerec/data/de/raw/')
 out_data_dir=Path('./data/')
 data = MusicDataBunch.empty(out_data_dir)
@@ -127,7 +127,7 @@ if __name__ == "__main__":
 
     logging.basicConfig(level=logging.DEBUG)
     wav_dir = prepare_audio(**vars(args))
-
+    #wav_dir = Path('data/split_bars/wav/')
     if not args.skip_tacotron:
         logger.info("prepare tacotron data -> split audio into 2 bars chunks and transcribe audio")
         prepare_tacotron_data(wav_dir, **vars(args))

@@ -49,6 +49,26 @@ class S2SAudioChordProcessor(PreProcessor):
             ds.items = [self.process_one(item) for item in mel_files]
 
 
+class S2SAudioChordProcessori1(PreProcessor):
+    "Encodes audio files plus chord text file into MultiTrackItem"
+
+    def process_one(self, melody_file):
+        chord_file = str(melody_file).replace('.wav', '.txt')
+        m = MusicItem.from_audio(melody_file, self.vocab)
+        c = MusicItem.from_chordfile(chord_file, self.vocab)
+        mtrack = MultitrackItem(m, c, None)
+        return mtrack.to_idx()
+
+    def process(self, ds):
+        self.vocab = ds.vocab
+        #if len(ds.items) == 2:
+        if 2 == 2:
+            #chord_file = ds.items[1]
+            chord_file = '/mnt/shared_ad2_mt1//hbauerec/data/de/raw/bh/bh.txt'
+            #mel_files = ds.items[0]
+            mel_files = ds.items
+            ds.items = [self.process_one(item) for item in mel_files]
+
 class Midi2MultitrackProcessor(PreProcessor):
     "Converts midi files to multitrack items"
     def process_one(self, midi_file):
