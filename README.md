@@ -1,2 +1,3 @@
 # music_performer_bot
-Deep learned music performer bot based on musicautobot, tacotron and waveglow
+is a AI driven musical instrument performer bot, which is based on musicautobot, tacotron and waveglow
+
