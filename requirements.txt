@@ -1,0 +1,14 @@
+matplotlib
+numpy
+fastai==1.0.61
+music21
+pebble
+jupyter
+inflect
+librosa
+scipy
+Unidecode
+aubio
+praat-parselmouth==0.3.3
+tensorboardX==2.0
+git+git://github.com/NVIDIA/dllogger.git@26a0f8f1958de2c0c460925ff6102a4d2486d6cc#egg=dllogger
