@@ -39,3 +39,5 @@ See scripts in ```scripts2``` folder
 ```
 python ./inference.py --bpm=150 -m "Dm7 G7 C" -o out --waveglow snapshots/waveglow/chechpoint_Waveglow_last.pt --tacotron2 snapshots/tacotron/checkpoint_Tacotron2_last.pt
 ```
+
+(please let me know if you run into any issues (which you probably will...). I will update the documentation based on need)
